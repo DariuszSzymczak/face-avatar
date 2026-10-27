@@ -3,11 +3,9 @@ import { Upload, Save, Loader2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { AnimeAvatar } from "@/components/AnimeAvatar";
-import { useIdleFace } from "@/hooks/useIdleFace";
+import { Avatar3D } from "@/components/Avatar3D";
 import { useApi } from "@/lib/api";
-import { DEFAULT_CONFIG, HAIR_STYLES, PALETTES, EXPRESSIONS } from "@/lib/avatarConfig";
+import { DEFAULT_CONFIG, PALETTES } from "@/lib/avatarConfig";
 import { colorsFromPhoto } from "@/lib/photoColors";
 import { EMOTIONS } from "@/lib/emotions";
 
@@ -39,7 +37,6 @@ export default function AvatarCreator({ onSaved }) {
   const [analyzing, setAnalyzing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [preview, setPreview] = useState("neutral");
-  const idle = useIdleFace();
   const set = (k, v) => setConfig((c) => ({ ...c, [k]: v }));
 
   const pick = async (file) => {
@@ -88,21 +85,9 @@ export default function AvatarCreator({ onSaved }) {
         </button>
         <input ref={inputRef} data-testid="avatar-photo-upload-input" type="file" accept="image/*" hidden onChange={(e) => pick(e.target.files[0])} />
 
-        <div>
-          <p className="caption mb-2">Krok 2 · Fryzura</p>
-          <div className="grid grid-cols-3 gap-2" data-testid="avatar-style-select">
-            {HAIR_STYLES.map((s) => (
-              <button key={s.key} data-testid={`avatar-style-${s.key}`} onClick={() => set("hairStyle", s.key)} className={`style-pill ${config.hairStyle === s.key ? "on" : ""}`}>{s.label}</button>
-            ))}
-          </div>
-        </div>
         <div className="space-y-4">
-          <p className="caption">Krok 3 · Kolory {photo && <span className="text-cyan-300 normal-case tracking-normal"><Wand2 size={12} className="inline" /> ze zdjęcia</span>}</p>
+          <p className="caption">Krok 2 · Kolory {photo && <span className="text-cyan-300 normal-case tracking-normal"><Wand2 size={12} className="inline" /> ze zdjęcia</span>}</p>
           {COLOR_FIELDS.map((f) => <ColorRow key={f.key} field={f} value={config[f.key]} onChange={(v) => set(f.key, v)} />)}
-        </div>
-        <div className="flex gap-6">
-          <label className="flex items-center gap-2 text-sm"><Switch className="data-[state=checked]:bg-violet-500" data-testid="avatar-glasses-switch" checked={config.glasses} onCheckedChange={(v) => set("glasses", v)} /> Okulary</label>
-          <label className="flex items-center gap-2 text-sm"><Switch className="data-[state=checked]:bg-violet-500" data-testid="avatar-beard-switch" checked={config.beard} onCheckedChange={(v) => set("beard", v)} /> Broda</label>
         </div>
       </section>
 
@@ -110,7 +95,7 @@ export default function AvatarCreator({ onSaved }) {
         <div className="flex items-end justify-between gap-3">
           <div>
             <p className="caption">Podgląd</p>
-            <h2 className="font-display text-2xl font-bold mt-1">Twój avatar anime</h2>
+            <h2 className="font-display text-2xl font-bold mt-1">Twój avatar anime 3D</h2>
           </div>
           <div className="flex flex-wrap gap-1 justify-end">
             {EMOTIONS.map((e) => (
@@ -121,7 +106,7 @@ export default function AvatarCreator({ onSaved }) {
         <div className="stage">
           <div className="stage-glow" style={{ background: "radial-gradient(circle at 50% 55%, #8B5CF633, transparent 65%)" }} />
           <div className="stage-grid" />
-          <AnimeAvatar config={config} face={{ ...idle, ...EXPRESSIONS[preview] }} className="absolute inset-0 w-full h-full" testId="creator-avatar-preview" />
+          <Avatar3D config={config} expression={preview} className="absolute inset-0" testId="creator-avatar-preview" />
         </div>
         <div className="flex gap-3">
           <Input data-testid="avatar-name-input" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} placeholder="Nazwa avatara" className="bg-white/5 border-white/10" />

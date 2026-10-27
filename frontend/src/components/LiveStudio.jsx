@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Video, VideoOff, Mic, MicOff, Crosshair, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { AnimeAvatar } from "@/components/AnimeAvatar";
+import { Avatar3D } from "@/components/Avatar3D";
 import { EmotionMeters } from "@/components/EmotionMeters";
 import EmotionSettings from "@/components/EmotionSettings";
 import { useFaceTracker } from "@/hooks/useFaceTracker";
@@ -41,7 +41,7 @@ export default function LiveStudio({ avatar }) {
   const forced = useRef({ emo: null, until: 0 });
   const speech = useRef({ scores: null, at: 0 });
   const [params, setParams] = useState(loadParams);
-  const [face, setFace] = useState(NEUTRAL_FACE);
+  const faceRef = useRef({ ...NEUTRAL_FACE });
   const [ui, setUi] = useState({ scores: ZERO, current: "neutral", pose: { pitch: 0, yaw: 0, roll: 0 } });
   const [transcript, setTranscript] = useState([]);
   const pRef = useRef(params);
@@ -81,7 +81,8 @@ export default function LiveStudio({ avatar }) {
       const out = {};
       for (const k in ft) out[k] = lerp(face0(k), ft[k], k.startsWith("blink") ? 0.75 : 0.45);
       Object.assign(s, out);
-      setFace({ ...out, yaw: -s.yaw, pitch: s.pitch, roll: -s.roll, joy: s.joy, sadness: s.sadness, anger: s.anger, surprise: s.surprise });
+      const m = P.mirror ? -1 : 1;
+      faceRef.current = { ...out, blinkL: P.mirror ? out.blinkR : out.blinkL, blinkR: P.mirror ? out.blinkL : out.blinkR, lookX: out.lookX * m, yaw: s.yaw * m, pitch: s.pitch, roll: s.roll * m, joy: s.joy, sadness: s.sadness, anger: s.anger, surprise: s.surprise };
       raf = requestAnimationFrame(loop);
     };
     const face0 = (k) => st.current[k] ?? 0;
@@ -138,9 +139,7 @@ export default function LiveStudio({ avatar }) {
           <div className="stage-glow" style={{ background: `radial-gradient(circle at 50% 55%, ${cur.color}44, transparent 65%)` }} />
           <div className="stage-grid" />
           {avatar ? (
-            <div className="absolute inset-0" style={{ transform: `perspective(900px) rotateY(${(face.yaw * 0.5).toFixed(1)}deg) rotateX(${(-face.pitch * 0.4).toFixed(1)}deg)` }}>
-              <AnimeAvatar config={avatar.config} face={face} className="w-full h-full" testId="live-anime-avatar" />
-            </div>
+            <Avatar3D config={avatar.config} faceRef={faceRef} className="absolute inset-0" testId="live-avatar-3d" />
           ) : (
             <div className="absolute inset-0 grid place-items-center text-slate-400 text-sm px-8 text-center" data-testid="stage-empty">Najpierw stwórz avatara w zakładce „Kreator Avatara”.</div>
           )}

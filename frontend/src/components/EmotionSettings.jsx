@@ -37,6 +37,10 @@ export default function EmotionSettings({ params, setParams, onReset }) {
           );
         })}
       </div>
+      <label className="flex items-center gap-3 text-sm mt-6">
+        <Switch className="neon-vars data-[state=checked]:bg-violet-500" data-testid="global-param-mirror" checked={params.mirror} onCheckedChange={(v) => setParams((p) => ({ ...p, mirror: v }))} />
+        Odbicie lustrzane (wyłącz, jeśli avatar obraca głowę w złą stronę)
+      </label>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-5 mt-6">
         {GLOBAL_PARAMS.map((g) => (
           <Row key={g.key} label={g.label} value={params[g.key]} fmt={g.fmt} min={g.min} max={g.max} step={g.step} testId={`global-param-${g.key}`} onValueChange={(v) => setParams((p) => ({ ...p, [g.key]: v[0] }))} />

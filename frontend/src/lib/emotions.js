@@ -29,6 +29,7 @@ export const DEFAULT_PARAMS = {
   speechDecay: 8,
   headStrength: 1,
   talkGain: 1,
+  mirror: true,
 };
 
 export const GLOBAL_PARAMS = [
