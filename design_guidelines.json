@@ -1,0 +1,130 @@
+{
+  "project_info": {
+    "name": "AniEmotion Studio - AI Anime Avatar Generator & Live Face/Speech Tracker",
+    "description": "A dark-mode futuristic SaaS studio application in Polish that takes a user photo, generates an anime avatar with emotion variants, and tracks webcam head pose, facial gestures, and voice emotion live.",
+    "ui_language": "pl",
+    "theme": "Dark Mode Cyber-Anime Studio (Obsidian #0B0E17, Electric Violet #8B5CF6, Cyan Pulse #06B6D4, Neon Coral #F43F5E)",
+    "file_extension": ".js"
+  },
+  "visual_identity": {
+    "archetype": "ARCHETYPE 7: ELECTRIC & NEON (Anime Cyber Studio)",
+    "tone_and_feeling": "High-tech studio, expressive, energetic, responsive, polished anime aesthetic",
+    "typography": {
+      "headline_font": "Outfit, sans-serif",
+      "body_font": "Plus Jakarta Sans, sans-serif",
+      "mono_font": "JetBrains Mono, monospace",
+      "font_imports": "@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@500;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');",
+      "scale": {
+        "h1": "text-4xl sm:text-5xl font-black tracking-tight leading-none",
+        "h2": "text-2xl sm:text-3xl font-bold tracking-tight",
+        "h3": "text-xl sm:text-2xl font-semibold",
+        "card_title": "text-lg font-semibold tracking-tight",
+        "body": "text-sm sm:text-base text-slate-300 leading-relaxed",
+        "caption": "text-xs font-mono uppercase tracking-widest text-slate-400"
+      }
+    },
+    "colors": {
+      "background_dark": "#0B0E17",
+      "surface_card": "#131826",
+      "surface_border": "rgba(255, 255, 255, 0.1)",
+      "primary_violet": "#8B5CF6",
+      "accent_cyan": "#06B6D4",
+      "accent_pink": "#EC4899",
+      "emotions": {
+        "joy": { "color": "#10B981", "label": "Radość", "bg": "rgba(16, 185, 129, 0.15)" },
+        "sadness": { "color": "#3B82F6", "label": "Smutek", "bg": "rgba(59, 130, 246, 0.15)" },
+        "anger": { "color": "#EF4444", "label": "Złość", "bg": "rgba(239, 68, 68, 0.15)" },
+        "surprise": { "color": "#F59E0B", "label": "Zaskoczenie", "bg": "rgba(245, 158, 11, 0.15)" },
+        "neutral": { "color": "#8B5CF6", "label": "Neutralny", "bg": "rgba(139, 92, 246, 0.15)" }
+      }
+    }
+  },
+  "layout_and_structure": {
+    "type": "Single-Page Application Studio with tabbed navigation (Studio na żywo, Generuj Avatara, Galeria, Konto)",
+    "header": {
+      "style": "Sticky top bar with glassmorphism backdrop-blur-xl bg-[#0B0E17]/80 border-b border-white/10 z-50 px-6 py-3",
+      "logo": "AniEmotion AI (Glowing icon + badge 'Anime v1.0')",
+      "nav_items": ["Studio Na Żywo", "Kreator Avatara", "Moja Galeria"],
+      "user_menu": "Avatar pill + email status + logout button"
+    },
+    "main_grid": "Grid col-1 lg:col-span-12 gap-6 p-4 md:p-6 max-w-7xl mx-auto",
+    "bento_layout": {
+      "webcam_preview": "col-span-12 md:col-span-4 lg:col-span-3 (Compact camera frame with mesh landmarks overlay toggle)",
+      "avatar_viewport": "col-span-12 md:col-span-8 lg:col-span-6 (Large animated Canvas/SVG stage showing the reactive anime avatar)",
+      "analytics_panel": "col-span-12 lg:col-span-3 (Emotion spectrum meters, head pose pitch/yaw/roll stats, live audio transcript with sentiment)"
+    }
+  },
+  "components_and_features": {
+    "auth_modal": {
+      "title": "Zaloguj się do Studio",
+      "fields": ["Email", "Hasło"],
+      "test_ids": {
+        "email_input": "auth-email-input",
+        "password_input": "auth-password-input",
+        "submit_button": "auth-submit-button",
+        "switch_mode": "auth-switch-mode-button"
+      }
+    },
+    "avatar_creator": {
+      "step_1": "Wgraj własne zdjęcie (Upload drag & drop zone)",
+      "step_2": "Wybierz podstyle anime (Cyberpunk, Soft Pastel, Shonen Bold, Chibi)",
+      "step_3": "Przycisk 'Generuj Avatara Anime' with step-by-step progress animation",
+      "step_4": "Podgląd wygenerowanych wariantów emocji (Neutralny, Radość, Smutek, Złość, Zaskoczenie)",
+      "test_ids": {
+        "upload_input": "avatar-photo-upload-input",
+        "generate_button": "avatar-generate-button",
+        "style_select": "avatar-style-select",
+        "variant_card": "avatar-variant-card"
+      }
+    },
+    "live_studio": {
+      "webcam_card": "Video feed with canvas overlay showing MediaPipe landmark dots, camera selector, start/stop tracking button",
+      "avatar_display": "Smooth Canvas/SVG face puppeteer: eyes blink, mouth opens/closes based on audio & webcam pitch/yaw head rotation, emotion switching based on facial expression + voice analysis",
+      "emotion_meters": "Animated progress bars for Joy, Sadness, Anger, Surprise, Neutral with live percentage indicators",
+      "voice_transcript": "Real-time speech transcription box in Polish with detected vocal tone badge",
+      "controls": "Mic toggle, Camera toggle, Sensitivity slider, Calibrate Neutral pose button",
+      "test_ids": {
+        "toggle_camera": "live-toggle-camera-button",
+        "toggle_mic": "live-toggle-mic-button",
+        "calibrate_button": "live-calibrate-button",
+        "webcam_video": "live-webcam-video-element",
+        "avatar_canvas": "live-avatar-canvas-element",
+        "emotion_meter_joy": "emotion-meter-joy",
+        "emotion_meter_sadness": "emotion-meter-sadness",
+        "emotion_meter_anger": "emotion-meter-anger",
+        "emotion_meter_surprise": "emotion-meter-surprise",
+        "speech_transcript": "live-speech-transcript"
+      }
+    },
+    "avatar_gallery": {
+      "grid": "Card grid displaying user's generated anime avatars with emotion state selectors and preset simulator buttons",
+      "test_ids": {
+        "gallery_grid": "avatar-gallery-grid",
+        "select_active_avatar": "select-active-avatar-button"
+      }
+    }
+  },
+  "image_urls": {
+    "default_avatars": [
+      {
+        "id": "anime_female_1",
+        "description": "Anime style painted face portrait",
+        "url": "https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA3MDR8MHwxfHNlYXJjaHwxfHxhbmltZSUyMHBvcnRyYWl0JTIwYXZhdGFyJTIwc3R5bGV8ZW58MHx8fHwxNzkzMTQwNjU3fDA&ixlib=rb-4.1.0&q=85"
+      },
+      {
+        "id": "anime_portrait_2",
+        "description": "Portrait woman in artistic hat",
+        "url": "https://images.unsplash.com/photo-1581841064838-a470c740e8ee?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA3MDR8MHwxfHNlYXJjaHwyfHxhbmltZSUyMHBvcnRyYWl0JTIwYXZhdGFyJTIwc3R5bGV8ZW58MHx8fHwxNzkzMTQwNjU3fDA&ixlib=rb-4.1.0&q=85"
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Build the application in React JS using components in src/components/ (JavaScript .js format).",
+    "Use Lucide-react icons for UI controls (Video, VideoOff, Mic, MicOff, Sparkles, User, RefreshCw, Layers, Sliders, Activity, Volume2).",
+    "Ensure all user-facing strings are in clear Polish language.",
+    "Ensure full mock functionality for: face tracking preview, simulated speech-to-text with emotion detection, avatar emotion switching, photo upload avatar generator pipeline.",
+    "Add explicit data-testid attributes to all interactive elements as mapped out in test_ids.",
+    "Maintain high APCA contrast with dark backgrounds (slate-950/obsidian) and vivid neon accents (cyan, pink, violet).",
+    "Grid children must be direct children. Use smooth transitions for emotion shifts."
+  ]
+}
