@@ -1,99 +1,134 @@
-import { useEffect, useRef, useState } from "react";
-import { Upload, Sparkles, Loader2 } from "lucide-react";
+import { useRef, useState } from "react";
+import { Upload, Save, Loader2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { useApi, useAvatarImages } from "@/lib/api";
-import { STYLES, EMOTION_MAP } from "@/lib/emotions";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { AnimeAvatar } from "@/components/AnimeAvatar";
+import { useIdleFace } from "@/hooks/useIdleFace";
+import { useApi } from "@/lib/api";
+import { DEFAULT_CONFIG, HAIR_STYLES, PALETTES, EXPRESSIONS } from "@/lib/avatarConfig";
+import { colorsFromPhoto } from "@/lib/photoColors";
+import { EMOTIONS } from "@/lib/emotions";
 
-const TOTAL = 6;
-const LABELS = { ...Object.fromEntries(Object.entries(EMOTION_MAP).map(([k, v]) => [k, v.label])), talking: "Mówienie" };
+const COLOR_FIELDS = [
+  { key: "hairColor", label: "Włosy" },
+  { key: "eyeColor", label: "Oczy" },
+  { key: "skinColor", label: "Skóra" },
+  { key: "shirtColor", label: "Ubranie" },
+];
 
-export default function AvatarCreator({ onReady }) {
+const ColorRow = ({ field, value, onChange }) => (
+  <div>
+    <p className="text-xs text-slate-400 mb-2">{field.label}</p>
+    <div className="flex flex-wrap items-center gap-2">
+      {PALETTES[field.key].map((c) => (
+        <button key={c} type="button" data-testid={`color-${field.key}-${c.slice(1)}`} onClick={() => onChange(c)} className={`swatch ${value.toLowerCase() === c.toLowerCase() ? "on" : ""}`} style={{ background: c }} aria-label={c} />
+      ))}
+      <input type="color" data-testid={`color-${field.key}-custom`} value={value} onChange={(e) => onChange(e.target.value)} className="swatch-input" />
+    </div>
+  </div>
+);
+
+export default function AvatarCreator({ onSaved }) {
   const api = useApi();
   const inputRef = useRef(null);
-  const [file, setFile] = useState(null);
-  const [preview, setPreview] = useState(null);
-  const [style, setStyle] = useState("classic");
-  const [job, setJob] = useState(null);
-  const urls = useAvatarImages(job);
+  const [config, setConfig] = useState(DEFAULT_CONFIG);
+  const [name, setName] = useState("Mój avatar");
+  const [photo, setPhoto] = useState(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [preview, setPreview] = useState("neutral");
+  const idle = useIdleFace();
+  const set = (k, v) => setConfig((c) => ({ ...c, [k]: v }));
 
-  useEffect(() => {
-    if (!job || job.status !== "processing") return;
-    const id = setInterval(async () => {
-      const a = await api({ url: `/avatars/${job.id}` });
-      setJob(a);
-      if (a.status === "ready") { toast.success("Avatar gotowy!"); onReady(a); }
-      if (a.status === "failed") { toast.error(a.error || "Generowanie nie powiodło się"); onReady(null); }
-    }, 3000);
-    return () => clearInterval(id);
-  }, [job, api, onReady]);
-
-  const pick = (f) => {
-    if (!f) return;
-    setFile(f);
-    setPreview(URL.createObjectURL(f));
-  };
-
-  const generate = async () => {
-    const fd = new FormData();
-    fd.append("photo", file);
-    fd.append("style", style);
+  const pick = async (file) => {
+    if (!file) return;
+    setPhoto(URL.createObjectURL(file));
+    setAnalyzing(true);
     try {
-      setJob(await api({ url: "/avatars", method: "post", data: fd }));
+      const colors = await colorsFromPhoto(file);
+      if (colors) { setConfig((c) => ({ ...c, ...colors })); toast.success("Kolory dobrane ze zdjęcia"); }
+      else toast.error("Nie znaleziono twarzy na zdjęciu — dobierz kolory ręcznie");
     } catch (e) {
-      toast.error(e.response?.data?.detail || "Błąd wysyłania zdjęcia");
+      console.error(e);
+      toast.error("Nie udało się przeanalizować zdjęcia");
+    } finally {
+      setAnalyzing(false);
     }
   };
 
-  const busy = job?.status === "processing";
+  const save = async () => {
+    setSaving(true);
+    try {
+      const a = await api({ url: "/avatars", method: "post", data: { name: name.trim() || "Avatar", config } });
+      toast.success("Avatar zapisany!");
+      onSaved(a);
+    } catch {
+      toast.error("Nie udało się zapisać");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="grid grid-cols-12 gap-5">
       <section className="panel col-span-12 lg:col-span-5 space-y-5 rise">
         <div>
           <p className="caption">Krok 1</p>
           <h2 className="font-display text-2xl font-bold mt-1">Wgraj swoje zdjęcie</h2>
+          <p className="text-xs text-slate-500 mt-1">Zdjęcie zostaje w Twojej przeglądarce — nic nie jest wysyłane.</p>
         </div>
         <button type="button" data-testid="avatar-photo-dropzone" onClick={() => inputRef.current.click()}
-          onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); pick(e.dataTransfer.files[0]); }}
-          className="dropzone">
-          {preview ? <img src={preview} alt="podgląd" className="h-full w-full object-cover rounded-xl" /> : (
-            <span className="flex flex-col items-center gap-2 text-slate-400"><Upload /> Przeciągnij zdjęcie lub kliknij<small className="text-xs">Najlepiej twarz na wprost, dobre światło</small></span>
+          onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); pick(e.dataTransfer.files[0]); }} className="dropzone relative">
+          {photo ? <img src={photo} alt="zdjęcie" className="h-full w-full object-cover rounded-xl" /> : (
+            <span className="flex flex-col items-center gap-2 text-slate-400"><Upload /> Przeciągnij zdjęcie lub kliknij<small className="text-xs">Twarz na wprost, dobre światło</small></span>
           )}
+          {analyzing && <span className="absolute inset-0 grid place-items-center bg-black/60 rounded-xl text-sm" data-testid="avatar-analyzing"><span className="flex items-center gap-2"><Loader2 className="animate-spin" size={16} /> Analizuję twarz…</span></span>}
         </button>
         <input ref={inputRef} data-testid="avatar-photo-upload-input" type="file" accept="image/*" hidden onChange={(e) => pick(e.target.files[0])} />
+
         <div>
-          <p className="caption mb-2">Krok 2 · Styl anime</p>
-          <div className="grid grid-cols-2 gap-2" data-testid="avatar-style-select">
-            {STYLES.map((s) => (
-              <button key={s.key} data-testid={`avatar-style-${s.key}`} onClick={() => setStyle(s.key)} className={`style-pill ${style === s.key ? "on" : ""}`}>{s.label}</button>
+          <p className="caption mb-2">Krok 2 · Fryzura</p>
+          <div className="grid grid-cols-3 gap-2" data-testid="avatar-style-select">
+            {HAIR_STYLES.map((s) => (
+              <button key={s.key} data-testid={`avatar-style-${s.key}`} onClick={() => set("hairStyle", s.key)} className={`style-pill ${config.hairStyle === s.key ? "on" : ""}`}>{s.label}</button>
             ))}
           </div>
         </div>
-        <Button data-testid="avatar-generate-button" disabled={!file || busy} onClick={generate} className="btn-primary w-full h-12 text-base">
-          {busy ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />} {busy ? "Generuję…" : "Generuj Avatara Anime"}
-        </Button>
+        <div className="space-y-4">
+          <p className="caption">Krok 3 · Kolory {photo && <span className="text-cyan-300 normal-case tracking-normal"><Wand2 size={12} className="inline" /> ze zdjęcia</span>}</p>
+          {COLOR_FIELDS.map((f) => <ColorRow key={f.key} field={f} value={config[f.key]} onChange={(v) => set(f.key, v)} />)}
+        </div>
+        <div className="flex gap-6">
+          <label className="flex items-center gap-2 text-sm"><Switch className="data-[state=checked]:bg-violet-500" data-testid="avatar-glasses-switch" checked={config.glasses} onCheckedChange={(v) => set("glasses", v)} /> Okulary</label>
+          <label className="flex items-center gap-2 text-sm"><Switch className="data-[state=checked]:bg-violet-500" data-testid="avatar-beard-switch" checked={config.beard} onCheckedChange={(v) => set("beard", v)} /> Broda</label>
+        </div>
       </section>
 
-      <section className="panel col-span-12 lg:col-span-7 rise" style={{ animationDelay: "80ms" }}>
-        <div className="flex items-end justify-between mb-4">
+      <section className="panel col-span-12 lg:col-span-7 space-y-4 rise" style={{ animationDelay: "80ms" }}>
+        <div className="flex items-end justify-between gap-3">
           <div>
-            <p className="caption">Krok 3</p>
-            <h2 className="font-display text-2xl font-bold mt-1">Warianty emocji</h2>
+            <p className="caption">Podgląd</p>
+            <h2 className="font-display text-2xl font-bold mt-1">Twój avatar anime</h2>
           </div>
-          {job && <span className="font-mono text-xs text-slate-400" data-testid="avatar-progress">{job.progress}/{TOTAL}</span>}
+          <div className="flex flex-wrap gap-1 justify-end">
+            {EMOTIONS.map((e) => (
+              <button key={e.key} data-testid={`creator-preview-${e.key}`} onClick={() => setPreview(e.key)} className={`chip ${preview === e.key ? "on" : ""}`} style={preview === e.key ? { borderColor: e.color, color: e.color } : undefined}>{e.label}</button>
+            ))}
+          </div>
         </div>
-        {job && <div className="h-1.5 rounded-full bg-white/5 mb-5 overflow-hidden"><div className="h-full bg-gradient-to-r from-violet-500 to-cyan-400 transition-[width] duration-700" style={{ width: `${(job.progress / TOTAL) * 100}%` }} /></div>}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {Object.keys(LABELS).map((k) => (
-            <div key={k} className="variant" data-testid={`avatar-variant-card-${k}`}>
-              {urls[k] ? <img src={urls[k]} alt={k} className="w-full h-full object-cover" /> : (
-                <div className={`w-full h-full grid place-items-center ${busy ? "shimmer" : ""}`}><span className="text-xs text-slate-500">{busy ? "rysuję…" : "—"}</span></div>
-              )}
-              <span className="variant-label">{LABELS[k]}</span>
-            </div>
-          ))}
+        <div className="stage">
+          <div className="stage-glow" style={{ background: "radial-gradient(circle at 50% 55%, #8B5CF633, transparent 65%)" }} />
+          <div className="stage-grid" />
+          <AnimeAvatar config={config} face={{ ...idle, ...EXPRESSIONS[preview] }} className="absolute inset-0 w-full h-full" testId="creator-avatar-preview" />
         </div>
-        <p className="text-xs text-slate-500 mt-4">Generowanie trwa ok. 30–90 sekund. Najpierw powstaje portret bazowy, potem warianty emocji.</p>
+        <div className="flex gap-3">
+          <Input data-testid="avatar-name-input" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} placeholder="Nazwa avatara" className="bg-white/5 border-white/10" />
+          <Button data-testid="avatar-save-button" onClick={save} disabled={saving} className="btn-primary h-10 px-6">
+            {saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />} Zapisz i użyj
+          </Button>
+        </div>
       </section>
     </div>
   );

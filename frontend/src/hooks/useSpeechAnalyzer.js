@@ -1,59 +1,28 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useApi } from "@/lib/api";
+import { analyzeText } from "@/lib/speechEmotion";
 
-const CHUNK_MS = 4000;
-const MIN_PEAK = 0.04;
+const SR = typeof window !== "undefined" ? window.SpeechRecognition || window.webkitSpeechRecognition : null;
 
-// Records mic in 4s chunks, measures live volume, sends voiced chunks for transcription + emotion.
+// Free speech analysis: browser speech recognition (pl-PL) + local keyword emotion model + mic volume.
 export function useSpeechAnalyzer(onResult) {
-  const api = useApi();
   const [active, setActive] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [interim, setInterim] = useState("");
   const volumeRef = useRef(0);
   const ctxRef = useRef(null);
   const streamRef = useRef(null);
-  const timerRef = useRef(null);
+  const recRef = useRef(null);
   const runningRef = useRef(false);
   const cbRef = useRef(onResult);
   cbRef.current = onResult;
 
-  const send = useCallback(async (blob) => {
-    setBusy(true);
-    try {
-      const fd = new FormData();
-      fd.append("audio", blob, "chunk.webm");
-      const res = await api({ url: "/speech/analyze", method: "post", data: fd });
-      if (res.text) cbRef.current?.(res);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setBusy(false);
-    }
-  }, [api]);
-
-  const recordChunk = useCallback(() => {
-    if (!runningRef.current) return;
-    const rec = new MediaRecorder(streamRef.current, { mimeType: MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "" });
-    const parts = [];
-    let peak = 0;
-    const peakTimer = setInterval(() => { peak = Math.max(peak, volumeRef.current); }, 50);
-    rec.ondataavailable = (e) => e.data.size && parts.push(e.data);
-    rec.onstop = () => {
-      clearInterval(peakTimer);
-      if (peak > MIN_PEAK && parts.length) send(new Blob(parts, { type: rec.mimeType || "audio/webm" }));
-      recordChunk();
-    };
-    rec.start();
-    timerRef.current = setTimeout(() => rec.state === "recording" && rec.stop(), CHUNK_MS);
-  }, [send]);
-
   const stop = useCallback(() => {
     runningRef.current = false;
-    clearTimeout(timerRef.current);
+    recRef.current?.stop();
     streamRef.current?.getTracks().forEach((t) => t.stop());
     ctxRef.current?.close();
     ctxRef.current = null;
     volumeRef.current = 0;
+    setInterim("");
     setActive(false);
   }, []);
 
@@ -77,9 +46,28 @@ export function useSpeechAnalyzer(onResult) {
     tick();
     runningRef.current = true;
     setActive(true);
-    recordChunk();
-  }, [recordChunk]);
+
+    if (!SR) return;
+    const rec = new SR();
+    rec.lang = "pl-PL";
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.onresult = (e) => {
+      let live = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const text = e.results[i][0].transcript.trim();
+        if (e.results[i].isFinal) {
+          if (text) cbRef.current?.({ text, ...analyzeText(text) });
+        } else live += text;
+      }
+      setInterim(live);
+    };
+    rec.onend = () => runningRef.current && setTimeout(() => runningRef.current && rec.start(), 200);
+    rec.onerror = (e) => e.error === "not-allowed" && stop();
+    recRef.current = rec;
+    rec.start();
+  }, [stop]);
 
   useEffect(() => stop, [stop]);
-  return { active, busy, volumeRef, start, stop };
+  return { active, interim, supported: !!SR, volumeRef, start, stop };
 }

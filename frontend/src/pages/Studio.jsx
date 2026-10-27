@@ -21,16 +21,16 @@ export default function Studio() {
   const load = useCallback(async () => {
     const list = await api({ url: "/avatars" });
     setAvatars(list);
-    if (!list.some((a) => a.status === "ready")) setTab((t) => (t === "live" ? "create" : t));
+    if (!list.length) setTab((t) => (t === "live" ? "create" : t));
   }, [api]);
 
   useEffect(() => { load(); }, [load]);
 
   const select = (a) => { setActiveId(a.id); localStorage.setItem("activeAvatar", a.id); setTab("live"); };
-  const ready = (avatars || []).filter((a) => a.status === "ready");
+  const ready = avatars || [];
   const active = ready.find((a) => a.id === activeId) || ready[0] || null;
 
-  const onReady = useCallback((a) => { if (a) { setActiveId(a.id); localStorage.setItem("activeAvatar", a.id); } load(); }, [load]);
+  const onSaved = useCallback((a) => { setActiveId(a.id); localStorage.setItem("activeAvatar", a.id); setTab("live"); load(); }, [load]);
   const onDelete = async (a) => { await api({ url: `/avatars/${a.id}`, method: "delete" }); toast.success("Usunięto"); load(); };
 
   return (
@@ -53,7 +53,7 @@ export default function Studio() {
         {avatars === null ? <p className="text-slate-400 text-sm" data-testid="studio-loading">Ładowanie…</p> : (
           <>
             {tab === "live" && <LiveStudio key={active?.id || "none"} avatar={active} />}
-            {tab === "create" && <AvatarCreator onReady={onReady} />}
+            {tab === "create" && <AvatarCreator onSaved={onSaved} />}
             {tab === "gallery" && <Gallery avatars={avatars} activeId={active?.id} onSelect={select} onDelete={onDelete} />}
           </>
         )}

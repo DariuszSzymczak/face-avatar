@@ -44,3 +44,17 @@ body { background: #0B0E17; color: #E2E8F0; font-family: 'Plus Jakarta Sans', sa
 .auth-orb { position: absolute; width: 520px; height: 520px; right: -160px; top: 20%; border-radius: 50%; background: radial-gradient(circle, rgba(139,92,246,0.35), rgba(236,72,153,0.15) 50%, transparent 70%); filter: blur(20px); }
 
 .neon-vars { --primary: 258 90% 66%; --background: 0 0% 100%; }
+
+.swatch { width: 26px; height: 26px; border-radius: 999px; border: 2px solid rgba(255,255,255,0.15); transition: transform .15s, border-color .15s; }
+.swatch:hover { transform: scale(1.1); }
+.swatch.on { border-color: #fff; box-shadow: 0 0 0 2px #8B5CF6; }
+.swatch-input { width: 30px; height: 30px; border-radius: 8px; background: transparent; border: 1px dashed rgba(255,255,255,0.3); cursor: pointer; padding: 0; }
+.chip { padding: 4px 10px; border-radius: 999px; font-size: 12px; border: 1px solid rgba(255,255,255,0.12); color: #CBD5E1; background: rgba(255,255,255,0.03); transition: background-color .2s, border-color .2s, color .2s; }
+.chip:hover { background: rgba(255,255,255,0.08); }
+.chip:disabled { opacity: .4; }
+.tear { animation: tear 1.4s ease-in infinite; }
+.tear-2 { animation-delay: .6s; }
+@keyframes tear { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(40px); opacity: 0; } }
+.sparkle { transform-box: fill-box; transform-origin: center; animation: sparkle 1.2s ease-in-out infinite; }
+.sparkle-2 { animation-delay: .5s; }
+@keyframes sparkle { 50% { transform: scale(1.4) rotate(20deg); } }
