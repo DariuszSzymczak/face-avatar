@@ -23,7 +23,7 @@ export default function AvatarCreator({ onReady }) {
       const a = await api({ url: `/avatars/${job.id}` });
       setJob(a);
       if (a.status === "ready") { toast.success("Avatar gotowy!"); onReady(a); }
-      if (a.status === "failed") toast.error(a.error || "Generowanie nie powiodło się");
+      if (a.status === "failed") { toast.error(a.error || "Generowanie nie powiodło się"); onReady(null); }
     }, 3000);
     return () => clearInterval(id);
   }, [job, api, onReady]);

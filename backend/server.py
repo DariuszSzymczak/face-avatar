@@ -201,6 +201,8 @@ async def analyze_speech(audio: UploadFile = File(...), user: dict = Depends(req
         tr = await stt.transcribe(file=buf, model="whisper-1", response_format="json", language="pl")
     except Exception as e:
         logger.error(f"stt failed: {e}")
+        if "Budget has been exceeded" in str(e):
+            raise HTTPException(402, "Brak środków na kluczu AI — doładuj saldo")
         raise HTTPException(502, "Nie udało się rozpoznać mowy")
     text = (tr.text or "").strip()
     if len(text) < 2:

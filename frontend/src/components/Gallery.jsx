@@ -7,10 +7,10 @@ const GalleryCard = ({ avatar, active, onSelect, onDelete }) => {
   return (
     <div className={`panel p-3 space-y-3 ${active ? "ring-2 ring-violet-500" : ""}`} data-testid={`gallery-card-${avatar.id}`}>
       <div className="aspect-square rounded-xl overflow-hidden bg-white/5">
-        {urls.neutral ? <img src={urls.neutral} alt="avatar" className="w-full h-full object-cover" /> : <div className="w-full h-full grid place-items-center text-xs text-slate-500">{avatar.status === "failed" ? "Nieudane" : "W trakcie…"}</div>}
+        {urls.neutral ? <img src={urls.neutral} alt="avatar" className="w-full h-full object-cover" /> : <div className="w-full h-full grid place-items-center text-xs text-slate-500 p-3 text-center" data-testid={`gallery-card-status-${avatar.id}`}>{avatar.status === "failed" ? avatar.error || "Nieudane" : "W trakcie…"}</div>}
       </div>
-      <div className="flex gap-1">
-        {["joy", "sadness", "anger", "surprise"].map((k) => urls[k] && <img key={k} src={urls[k]} alt={k} className="w-1/4 aspect-square rounded-md object-cover" />)}
+      <div className="grid grid-cols-4 gap-1">
+        {["joy", "sadness", "anger", "surprise"].map((k) => urls[k] && <img key={k} src={urls[k]} alt={k} className="w-full aspect-square rounded-md object-cover" />)}
       </div>
       <div className="flex gap-2">
         <Button data-testid={`select-active-avatar-button-${avatar.id}`} disabled={avatar.status !== "ready"} onClick={() => onSelect(avatar)} className="btn-primary flex-1">

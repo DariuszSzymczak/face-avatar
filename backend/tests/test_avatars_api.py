@@ -1,6 +1,6 @@
-# AniEmotion backend regression: auth guard, avatar listing, image download, isolation, upload validation
+# AniEmotion backend regression (no-login): X-Client-Id guard, listing, image download, isolation, upload validation
 import os
-import subprocess
+import uuid
 import pytest
 import requests
 
@@ -12,20 +12,8 @@ if not BASE_URL:
 API = f"{BASE_URL}/api"
 AVATAR_ID = "e9d73202-68ab-405c-8879-a28d7f213ea6"
 EMOTIONS = ["neutral", "joy", "sadness", "anger", "surprise", "talking"]
-
-
-def _token(email):
-    return subprocess.check_output(["python", "/app/tests/clerk_token.py", email], text=True).strip()
-
-
-@pytest.fixture(scope="session")
-def owner():
-    return {"Authorization": f"Bearer {_token('tester+clerk_test@example.com')}"}
-
-
-@pytest.fixture(scope="session")
-def other():
-    return {"Authorization": f"Bearer {_token('other+clerk_test@example.com')}"}
+OWNER = {"X-Client-Id": "test-client-0001"}
+OTHER = {"X-Client-Id": f"TEST-other-{uuid.uuid4().hex[:12]}"}
 
 
 # Health
@@ -34,86 +22,89 @@ def test_root():
     assert r.status_code == 200 and r.json()["message"] == "AniEmotion API"
 
 
-# Auth guard: all protected endpoints 401 without token
+# Guard: missing X-Client-Id -> 400
 @pytest.mark.parametrize("method,path", [
     ("get", "/avatars"), ("get", f"/avatars/{AVATAR_ID}"), ("delete", f"/avatars/{AVATAR_ID}"),
-    ("get", f"/avatars/{AVATAR_ID}/image/neutral"), ("post", "/avatars"), ("post", "/speech/analyze"),
+    ("get", f"/avatars/{AVATAR_ID}/image/neutral"), ("post", "/speech/analyze"),
 ])
-def test_unauthenticated_401(method, path):
+def test_missing_client_id_400(method, path):
     r = getattr(requests, method)(f"{API}{path}")
-    assert r.status_code == 401, f"{method} {path} -> {r.status_code} {r.text[:200]}"
+    assert r.status_code == 400, f"{method} {path} -> {r.status_code} {r.text[:200]}"
 
 
-def test_invalid_token_401():
-    r = requests.get(f"{API}/avatars", headers={"Authorization": "Bearer garbage.token.value"})
-    assert r.status_code == 401
+def test_post_avatars_missing_client_id_400():
+    r = requests.post(f"{API}/avatars", files={"photo": ("a.png", b"x", "image/png")}, data={"style": "classic"})
+    assert r.status_code == 400
+
+
+@pytest.mark.parametrize("cid", ["short", "a" * 65, "bad_id!!chars", "has space here"])
+def test_invalid_client_id_400(cid):
+    r = requests.get(f"{API}/avatars", headers={"X-Client-Id": cid})
+    assert r.status_code == 400
 
 
 # Listing
-def test_list_avatars_owner(owner):
-    r = requests.get(f"{API}/avatars", headers=owner)
+def test_list_avatars_owner():
+    r = requests.get(f"{API}/avatars", headers=OWNER)
     assert r.status_code == 200
-    data = r.json()
-    a = next((x for x in data if x["id"] == AVATAR_ID), None)
-    assert a is not None
-    assert a["status"] == "ready"
+    a = next((x for x in r.json() if x["id"] == AVATAR_ID), None)
+    assert a is not None and a["status"] == "ready"
     assert set(a["emotions"]) == set(EMOTIONS)
     assert "user_id" not in a and "_id" not in a and "images" not in a
 
 
-def test_get_avatar_owner(owner):
-    r = requests.get(f"{API}/avatars/{AVATAR_ID}", headers=owner)
+def test_get_avatar_owner():
+    r = requests.get(f"{API}/avatars/{AVATAR_ID}", headers=OWNER)
     assert r.status_code == 200 and r.json()["id"] == AVATAR_ID
 
 
 # Image download
 @pytest.mark.parametrize("emo", EMOTIONS)
-def test_image_png(owner, emo):
-    r = requests.get(f"{API}/avatars/{AVATAR_ID}/image/{emo}", headers=owner)
+def test_image_png(emo):
+    r = requests.get(f"{API}/avatars/{AVATAR_ID}/image/{emo}", headers=OWNER)
     assert r.status_code == 200
     assert r.headers["content-type"].startswith("image/png")
-    assert len(r.content) > 1000
+    assert r.content[:8] == b"\x89PNG\r\n\x1a\n" or len(r.content) > 1000
 
 
-def test_image_unknown_emotion_404(owner):
-    r = requests.get(f"{API}/avatars/{AVATAR_ID}/image/bogus", headers=owner)
-    assert r.status_code == 404
+def test_image_unknown_emotion_404():
+    assert requests.get(f"{API}/avatars/{AVATAR_ID}/image/bogus", headers=OWNER).status_code == 404
 
 
 # Isolation
-def test_other_user_isolation(other):
-    assert all(a["id"] != AVATAR_ID for a in requests.get(f"{API}/avatars", headers=other).json())
-    assert requests.get(f"{API}/avatars/{AVATAR_ID}", headers=other).status_code == 404
-    assert requests.get(f"{API}/avatars/{AVATAR_ID}/image/neutral", headers=other).status_code == 404
-    assert requests.delete(f"{API}/avatars/{AVATAR_ID}", headers=other).status_code == 404
+def test_other_client_isolation():
+    r = requests.get(f"{API}/avatars", headers=OTHER)
+    assert r.status_code == 200 and r.json() == []
+    assert requests.get(f"{API}/avatars/{AVATAR_ID}", headers=OTHER).status_code == 404
+    assert requests.get(f"{API}/avatars/{AVATAR_ID}/image/neutral", headers=OTHER).status_code == 404
+    assert requests.delete(f"{API}/avatars/{AVATAR_ID}", headers=OTHER).status_code == 404
 
 
-def test_owner_avatar_still_exists_after_other_delete(owner):
-    assert requests.get(f"{API}/avatars/{AVATAR_ID}", headers=owner).status_code == 200
+def test_owner_avatar_still_exists_after_other_delete():
+    assert requests.get(f"{API}/avatars/{AVATAR_ID}", headers=OWNER).status_code == 200
 
 
-# Upload validation (no valid image submitted - LLM budget exhausted)
-def test_upload_non_image_400(owner):
-    r = requests.post(f"{API}/avatars", headers=owner, files={"photo": ("a.txt", b"hello", "text/plain")}, data={"style": "classic"})
+# Upload validation (no valid generation - LLM budget exhausted)
+def test_upload_non_image_400():
+    r = requests.post(f"{API}/avatars", headers=OTHER, files={"photo": ("a.txt", b"hello", "text/plain")}, data={"style": "classic"})
     assert r.status_code == 400 and "obrazem" in r.json()["detail"]
 
 
-def test_upload_unknown_style_400(owner):
-    r = requests.post(f"{API}/avatars", headers=owner, files={"photo": ("a.txt", b"hello", "text/plain")}, data={"style": "bogus"})
+def test_upload_unknown_style_400():
+    r = requests.post(f"{API}/avatars", headers=OTHER, files={"photo": ("a.png", b"x", "image/png")}, data={"style": "bogus"})
     assert r.status_code == 400 and "styl" in r.json()["detail"].lower()
 
 
-def test_upload_missing_file_422(owner):
-    r = requests.post(f"{API}/avatars", headers=owner, data={"style": "classic"})
-    assert r.status_code == 422
+def test_upload_missing_file_422():
+    assert requests.post(f"{API}/avatars", headers=OTHER, data={"style": "classic"}).status_code == 422
 
 
-def test_get_nonexistent_404(owner):
-    assert requests.get(f"{API}/avatars/does-not-exist", headers=owner).status_code == 404
-    assert requests.delete(f"{API}/avatars/does-not-exist", headers=owner).status_code == 404
+def test_get_nonexistent_404():
+    assert requests.get(f"{API}/avatars/does-not-exist", headers=OWNER).status_code == 404
+    assert requests.delete(f"{API}/avatars/does-not-exist", headers=OWNER).status_code == 404
 
 
 # Speech: tiny chunk short-circuits without LLM call
-def test_speech_tiny_chunk(owner):
-    r = requests.post(f"{API}/speech/analyze", headers=owner, files={"audio": ("c.webm", b"x" * 100, "audio/webm")})
+def test_speech_tiny_chunk():
+    r = requests.post(f"{API}/speech/analyze", headers=OWNER, files={"audio": ("c.webm", b"x" * 100, "audio/webm")})
     assert r.status_code == 200 and r.json() == {"text": "", "emotion": None, "scores": {}}

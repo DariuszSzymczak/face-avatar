@@ -30,7 +30,7 @@ export default function Studio() {
   const ready = (avatars || []).filter((a) => a.status === "ready");
   const active = ready.find((a) => a.id === activeId) || ready[0] || null;
 
-  const onReady = useCallback((a) => { setActiveId(a.id); localStorage.setItem("activeAvatar", a.id); load(); }, [load]);
+  const onReady = useCallback((a) => { if (a) { setActiveId(a.id); localStorage.setItem("activeAvatar", a.id); } load(); }, [load]);
   const onDelete = async (a) => { await api({ url: `/avatars/${a.id}`, method: "delete" }); toast.success("Usunięto"); load(); };
 
   return (
