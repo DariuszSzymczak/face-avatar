@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, Depends, UploadFile, File, Form, HTTPException, Response
+from fastapi import FastAPI, APIRouter, Depends, UploadFile, File, Form, HTTPException, Response, Header
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -22,10 +22,8 @@ from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent  # 
 from emergentintegrations.llm.openai import OpenAISpeechToText  # noqa: E402
 
 try:
-    from backend.clerk_auth import clerk_router, require_user
     from backend.storage import init_storage, put_object, get_object, APP_NAME
 except ModuleNotFoundError:
-    from clerk_auth import clerk_router, require_user
     from storage import init_storage, put_object, get_object, APP_NAME
 
 mongo_url = os.environ['MONGO_URL']
@@ -35,6 +33,15 @@ LLM_KEY = os.environ.get("EMERGENT_LLM_KEY")
 IMAGE_MODEL = "gemini-3.1-flash-image-preview"
 
 app = FastAPI()
+CLIENT_RE = re.compile(r"^[A-Za-z0-9-]{8,64}$")
+
+
+def require_user(x_client_id: str = Header(None)) -> dict:
+    # No login: each browser gets an anonymous id (localStorage) that scopes its avatars.
+    if not x_client_id or not CLIENT_RE.match(x_client_id):
+        raise HTTPException(400, "Brak identyfikatora przeglądarki")
+    return {"user_id": x_client_id}
+
 api_router = APIRouter(prefix="/api")
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -117,7 +124,8 @@ async def run_generation(avatar: Avatar, photo_b64: str):
         await db.avatars.update_one({"id": avatar.id}, {"$set": {"status": "ready"}})
     except Exception as e:
         logger.exception("avatar generation failed")
-        await db.avatars.update_one({"id": avatar.id}, {"$set": {"status": "failed", "error": str(e)[:300]}})
+        msg = "Brak środków na kluczu AI — doładuj saldo (Profile → Universal Key → Add Balance)" if "Budget has been exceeded" in str(e) else "Nie udało się wygenerować avatara, spróbuj ponownie"
+        await db.avatars.update_one({"id": avatar.id}, {"$set": {"status": "failed", "error": msg}})
 
 
 @api_router.get("/")
@@ -210,7 +218,6 @@ async def analyze_speech(audio: UploadFile = File(...), user: dict = Depends(req
 
 
 app.include_router(api_router)
-app.include_router(clerk_router)
 
 app.add_middleware(
     CORSMiddleware,

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { UserButton } from "@clerk/react";
 import { Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useApi } from "@/lib/api";
@@ -43,7 +42,6 @@ export default function Studio() {
             <span className="font-display font-extrabold text-lg tracking-tight">AniEmotion</span>
             <span className="hidden sm:inline text-[10px] font-mono px-2 py-0.5 rounded-full border border-cyan-400/40 text-cyan-300">BETA</span>
           </div>
-          <UserButton />
         </div>
         <nav className="max-w-7xl mx-auto px-4 md:px-6 flex gap-1 overflow-x-auto">
           {TABS.map((t) => (

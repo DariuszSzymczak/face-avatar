@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Video, VideoOff, Mic, MicOff, Crosshair, Loader2, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
 import { AvatarStage } from "@/components/AvatarStage";
 import { EmotionMeters } from "@/components/EmotionMeters";
 import { useFaceTracker } from "@/hooks/useFaceTracker";
 import { useSpeechAnalyzer } from "@/hooks/useSpeechAnalyzer";
 import { useAvatarImages } from "@/lib/api";
-import { faceEmotions, dominant, EMOTION_MAP } from "@/lib/emotions";
+import { faceEmotions, dominant, EMOTION_MAP, DEFAULT_PARAMS } from "@/lib/emotions";
+import EmotionSettings from "@/components/EmotionSettings";
 
 const ZERO = { joy: 0, sadness: 0, anger: 0, surprise: 0, neutral: 1 };
-const SPEECH_DECAY_MS = 8000;
+const loadParams = () => {
+  try { return { ...DEFAULT_PARAMS, ...JSON.parse(localStorage.getItem("emotionParams")) }; } catch { return DEFAULT_PARAMS; }
+};
 
 export default function LiveStudio({ avatar }) {
   const urls = useAvatarImages(avatar);
@@ -22,11 +24,12 @@ export default function LiveStudio({ avatar }) {
   const calib = useRef({ pitch: 0, yaw: 0, roll: 0 });
   const lastPose = useRef({ pitch: 0, yaw: 0, roll: 0 });
   const speech = useRef({ scores: null, at: 0 });
-  const [sensitivity, setSensitivity] = useState(1.2);
+  const [params, setParams] = useState(loadParams);
   const [ui, setUi] = useState({ scores: ZERO, current: "neutral", pose: lastPose.current, face: false });
   const [transcript, setTranscript] = useState([]);
-  const sensRef = useRef(sensitivity);
-  sensRef.current = sensitivity;
+  const pRef = useRef(params);
+  pRef.current = params;
+  useEffect(() => localStorage.setItem("emotionParams", JSON.stringify(params)), [params]);
 
   const mic = useSpeechAnalyzer(useCallback((res) => {
     speech.current = { scores: res.scores, at: Date.now() };
@@ -35,22 +38,22 @@ export default function LiveStudio({ avatar }) {
 
   const onFrame = useCallback((r) => {
     const s = smooth.current;
+    const P = pRef.current;
     let target = { ...ZERO }, jaw = 0, pose = { pitch: 0, yaw: 0, roll: 0 };
     if (r) {
-      target = faceEmotions(r.blendshapes, sensRef.current);
+      target = faceEmotions(r.blendshapes, P);
       jaw = r.blendshapes.jawOpen || 0;
       pose = r.pose;
       lastPose.current = pose;
     }
     const sp = speech.current;
-    const w = sp.scores ? Math.max(0, 1 - (Date.now() - sp.at) / SPEECH_DECAY_MS) * 0.4 : 0;
+    const w = sp.scores ? Math.max(0, 1 - (Date.now() - sp.at) / (P.speechDecay * 1000)) * P.speechWeight : 0;
     if (w > 0) for (const k in target) target[k] = target[k] * (1 - w) + (sp.scores[k] || 0) * w;
     const vol = mic.volumeRef.current;
-    const talkTarget = Math.min(1, Math.max(jaw * 2.2, mic.active ? vol * 8 : 0));
-    const a = 0.18;
-    for (const k in ZERO) s[k] += (target[k] - s[k]) * a;
+    const talkTarget = Math.min(1, Math.max(jaw * 2.2, mic.active ? vol * 8 : 0) * P.talkGain);
+    for (const k in ZERO) s[k] += (target[k] - s[k]) * P.smoothing;
     s.talk += (talkTarget - s.talk) * 0.35;
-    for (const k of ["pitch", "yaw", "roll"]) s[k] += (pose[k] - calib.current[k] - s[k]) * 0.3;
+    for (const k of ["pitch", "yaw", "roll"]) s[k] += ((pose[k] - calib.current[k]) * P.headStrength - s[k]) * 0.3;
     render(s);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mic.active]);
@@ -108,10 +111,6 @@ export default function LiveStudio({ avatar }) {
         <Button data-testid="live-calibrate-button" variant="ghost" className="w-full btn-ghost" onClick={() => (calib.current = { ...lastPose.current })} disabled={cam.status !== "running"}>
           <Crosshair size={16} /> Kalibruj pozycję głowy
         </Button>
-        <div>
-          <div className="flex justify-between text-xs text-slate-400 mb-2"><span>Czułość mimiki</span><span className="font-mono">{sensitivity.toFixed(1)}x</span></div>
-          <Slider className="neon-vars" data-testid="live-sensitivity-slider" min={0.6} max={2.5} step={0.1} value={[sensitivity]} onValueChange={(v) => setSensitivity(v[0])} />
-        </div>
       </section>
 
       <section className="col-span-12 md:col-span-8 lg:col-span-6 rise" style={{ animationDelay: "80ms" }}>
@@ -150,6 +149,10 @@ export default function LiveStudio({ avatar }) {
           </div>
         </div>
       </section>
+
+      <div className="col-span-12">
+        <EmotionSettings params={params} setParams={setParams} onReset={() => setParams(DEFAULT_PARAMS)} />
+      </div>
     </div>
   );
 }
